@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# Encoding: UTF-8
 # Written by Sourav Goswami
 # MIT Licence
 VERSION = 0.1
@@ -53,10 +54,10 @@ Float.define_method(:pad) { |round = 2| round(round).to_s.then { |x| x.split(?.)
 
 def generate_files(file, url, permission = 0644)
 	begin
-		# the files will be created as root if the user is root, no need to change ownership
+		# The files will be created as root if the user is root, no need to change ownership
 		if File.exist?(CONFIGURATION)
 			STDERR.write "This will overwrite #{CONFIGURATION} file. Accept? [N/y]: ".colourize
-			exit! 0 unless STDIN.gets.to_s.strip.downcase[0] == 'y'
+			return unless STDIN.gets.to_s.strip.downcase[0] == 'y'
 		else
 			STDERR.puts "Generating #{CONFIGURATION} file...".colourize
 		end
@@ -79,11 +80,11 @@ def generate_files(file, url, permission = 0644)
 	rescue SignalException, Interrupt, SystemExit
 		status = true
 		sleep 0.25
-		abort "Downloading is aborted. This may also lead to corrupted data."
+		abort "Downloading is aborted. This may also lead to corrupted data.".colourize
 	rescue SocketError
 		status = true
 		sleep 0.25
-		abort "Can't download #{file}. Is there any connection issue?"
+		abort "Can't download #{file}. Is there any connection issue?".colourize
 	end
 
 	STDERR.puts "Generated #{file} file successfully.".colourize
@@ -303,18 +304,14 @@ begin
 	elsif ARGV.any? { |x| x[/^\-\-help/] || x[/^\-h$/] }
 		STDOUT.puts <<~EOF.each_line.map(&:colourize).join
 			This is term-clock. A lightweight digital clock for your GNU/Linux system.
-
 			Configuration: The configuration can be found in #{CONFIGURATION}.
 				Read the file for more info.
-
 			Quotes: Generally all the quotes are in #{QUOTE}.
 				You can edit them if you like.
-
 			Characters: All the characters are specified in #{CHARACTERS}.
 				If you want to add a different time format in the
 				configuration file, you have to make sure the character
 				exist in the file. There are currently 0-9, A-Z, : characters.
-
 			Arguments: The available arguments that #{File.basename(__FILE__)} accepts are:
 					1. --download-conf         Downloads the configuration file from the internet.
 					2. --download-quote        Downloads missing quote file from the internet.
