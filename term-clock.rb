@@ -2,9 +2,8 @@
 # Encoding: UTF-8
 # Written by Sourav Goswami
 # MIT Licence
-VERSION = 0.11
+VERSION = 0.2
 
-GC.start(full_mark: true, immediate_sweep: true)
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
 CONFIGURATION = File.join(__dir__, %w(term-clock clock.conf))
@@ -13,6 +12,7 @@ CONFIGURATION = File.join(__dir__, %w(term-clock clock.conf))
 # QUOTE ||= File.join(%w(/ usr share term-clock quotes.txt))
 # CONFIGURATION ||= File.join(%w(/ usr share term-clock term-clock.conf))
 
+GC.start(full_mark: true, immediate_sweep: true)
 require('io/console')
 
 Warning.warn("Detected system is probably not a Linux (#{RUBY_PLATFORM}). This could cause issues.\n") || sleep(1) unless /linux/ === RUBY_PLATFORM
@@ -56,16 +56,16 @@ Float.define_method(:pad) { |round = 2| round(round).to_s.then { |x| x.split(?.)
 def generate_files(file, url, permission = 0644)
 	begin
 		# The files will be created as root if the user is root, no need to change ownership
-		if File.exist?(CONFIGURATION)
-			STDERR.write "This will overwrite #{CONFIGURATION} file. Accept? [N/y]: ".colourize
+		if File.exist?(file)
+			STDERR.write "This will overwrite #{file} file. Accept? [N/y]: ".colourize
 			return unless STDIN.gets.to_s.strip.downcase[0] == 'y'
 		else
-			STDERR.puts "Generating #{CONFIGURATION} file...".colourize
+			STDERR.puts "Generating #{file} file...".colourize
 		end
 
 		status = false
 		cols = [63, 33, 39, 44, 49, 83, 118]
-		Thread.new { %w(| / - \\).each_with_index { |x, i| print("\e[2K" + "#{x} Downloading configuration file#{?. * (i % 4)}\r".colourize(colours: cols.rotate!)) || sleep(0.1) } until status }
+		Thread.new { %w(| / - \\).each_with_index { |x, i| print("\e[2K" + "#{x} Downloading#{?. * (i % 4)}\r".colourize(colours: cols.rotate!)) || sleep(0.1) } until status }
 		%w(net/https fileutils).each(&method(:require))
 
 		FileUtils.mkdir(File.dirname(file)) unless Dir.exist?(File.dirname(file))
@@ -77,7 +77,7 @@ def generate_files(file, url, permission = 0644)
 	rescue Errno::EACCES
 		status = true
 		sleep 0.25
-		abort "Cannot generate configuration file. Permission denied.\nPlease try running #{$0} as root".colourize
+		abort "Cannot write to #{file}. Permission denied.\nPlease try running #{$0} as root".colourize
 	rescue SignalException, Interrupt, SystemExit
 		status = true
 		sleep 0.25
