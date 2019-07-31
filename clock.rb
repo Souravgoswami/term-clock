@@ -176,12 +176,12 @@ def main
 			begin
 				status = IO.read('/sys/class/power_supply/BAT0/status').strip.downcase
 				if status == 'full'
-					"\xE2\x9A\xA1"
+					" | \xE2\x9A\xA1"
 				elsif status == 'discharging'
-					"\xF0\x9F\x94\x8B"
+					" | \xF0\x9F\x94\x8B"
 				else
-					"\xF0\x9F\x94\x8C"
-				end + ' | Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now').to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full').to_i).pad + ?%
+					" | \xF0\x9F\x94\x8C"
+				end + 'Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now').to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full').to_i).pad + ?%
 			rescue Exception
 				''
 			end
@@ -228,7 +228,7 @@ def main
 		end if display_quote
 
 		info = "#{username} | #{clocks[(counter += 1) % clocks.size]} #{Time.new.strftime('%a, %b %D')}"\
-			"\xF0\x9F\x92\xAD | Memory: #{mem_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}/#{mem_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}"\
+			" | \xF0\x9F\x92\xAD Memory: #{mem_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}/#{mem_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}"\
 			"#{swap_stats} | \xF0\x9F\xA7\xA0 CPU: #{cpu_usage}% #{battery}".center(width - 7)
 
 		# Print to the STDOUT
