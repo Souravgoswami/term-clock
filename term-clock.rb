@@ -190,7 +190,7 @@ def main
 					" | \xF0\x9F\x94\x8B"
 				else
 					" | \xF0\x9F\x94\x8C"
-				end + 'Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now').to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full').to_i).pad + ?%
+				end + ' Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now').to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full').to_i).pad + ?%
 			rescue Exception
 				''
 			end
