@@ -1,6 +1,6 @@
 # Term-Clock ⏰
 #### A Configurable and Colourful Terminal Clock...
-![RPi](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/Raspberry%20Pi.png)
+![RPi](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/Raspberry%20Pi.jpg)
 
 # Dependencies ➕
   + Ruby: The program is written in Ruby. So you need to download the Ruby interpreter and run it:
