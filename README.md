@@ -1,6 +1,6 @@
 # Term-Clock ⏰
 #### A Configurable and Colourful Terminal Clock...
-![Screenshot 1](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/1.png)
+![RPi](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/Raspberry%20Pi.png)
 
 # Dependencies ➕
   + Ruby: The program is written in Ruby. So you need to download the Ruby interpreter and run it:
@@ -29,4 +29,5 @@ Arguments: The available arguments that term-clock.rb accepts are:
 + --tty?                  Shows if the current terminal is TTY.
 		                           [Generally code editors are not TTY]
 # Preview 📸
+![Screenshot 1](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/1.png)
 ![Screenshot 2](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/1.png)
