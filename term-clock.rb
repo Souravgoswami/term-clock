@@ -92,11 +92,11 @@ end
 
 def main
 	abort(
-		"Configuration file #{CONFIGURATION} #{File.exist?(CONFIGURATION) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --download-config to create a #{CONFIGURATION} file.".colourize
+		"Configuration file #{CONFIGURATION} #{File.exist?(CONFIGURATION) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --download-conf to get a #{CONFIGURATION} file.".colourize
 	) unless File.readable?(CONFIGURATION)
 
 	abort(
-		"Character mapping file #{CHARACTERS} #{File.exist?(CHARACTERS) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --download-characters to create a #{CHARACTERS} file.".colourize
+		"Character mapping file #{CHARACTERS} #{File.exist?(CHARACTERS) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --download-characters to get a #{CHARACTERS} file.".colourize
 	) unless File.readable?(CHARACTERS)
 
 	characters = IO.read(CHARACTERS).split(/#+/).reject(&:empty?).reduce({}) do |x, y|
