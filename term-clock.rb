@@ -2,7 +2,7 @@
 # Encoding: UTF-8
 # Written by Sourav Goswami
 # MIT Licence
-VERSION = 0.1
+VERSION = 0.11
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
@@ -92,11 +92,11 @@ end
 
 def main
 	abort(
-		"Configuration file #{CONFIGURATION} #{File.exist?(CONFIGURATION) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --generate-config to create a #{CONFIGURATION} file.".colourize
+		"Configuration file #{CONFIGURATION} #{File.exist?(CONFIGURATION) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --download-config to create a #{CONFIGURATION} file.".colourize
 	) unless File.readable?(CONFIGURATION)
 
 	abort(
-		"Character mapping file #{CHARACTERS} #{File.exist?(CHARACTERS) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --generate-chars to create a #{CHARACTERS} file.".colourize
+		"Character mapping file #{CHARACTERS} #{File.exist?(CHARACTERS) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --download-characters to create a #{CHARACTERS} file.".colourize
 	) unless File.readable?(CHARACTERS)
 
 	characters = IO.read(CHARACTERS).split(/#+/).reject(&:empty?).reduce({}) do |x, y|
@@ -142,7 +142,8 @@ def main
 			quotes = IO.readlines(QUOTE).uniq.map { |x| x.split(?\t).values_at(1, 0).map(&:strip).join("    -") }
 			quote_refreshed = Time.new.strftime('%s').to_i
 		else
-			Kernel.warn(QUOTE + (File.exist?(QUOTE) ? ' is not readable' : ' does not exist') + '... Disabling quotes')
+			Kernel.warn(QUOTE.colourize + (File.exist?(QUOTE) ? ' is not readable' : ' does not exist').+('... Disabling quotes.').colourize)
+			Kernel.warn("You may download quotes with `#{File.basename($0)} --download-quote' option".colourize)
 			display_quote = false
 			sleep 1
 		end
