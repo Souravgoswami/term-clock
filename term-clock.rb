@@ -4,6 +4,7 @@
 # MIT Licence
 VERSION = 0.11
 
+GC.start(full_mark: true, immediate_sweep: true)
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
 CONFIGURATION = File.join(__dir__, %w(term-clock clock.conf))
