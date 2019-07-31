@@ -8,11 +8,11 @@
 
   + Fonts: The noto-fonts and noto-fonts-emoji are neededto display unicode characters used in this program.
   
-# Usage and Running ⚙️
+# Usage and Running 🔄
   + Term-clock root installer will be coming soon. However, this repo is only for non-root usage. You can grab the [source code](https://github.com/Souravgoswami/term-clock/blob/master/term-clock.rb) and run it with --download-all option.
   + If you zip download the files, you have to run the `term-clock.rb`.
 
-# Configuration:
+# Configuration ⚙️
    Read and edit the [configuration file](https://github.com/Souravgoswami/term-clock/blob/master/term-clock/clock.conf)
    according to your need.
 
