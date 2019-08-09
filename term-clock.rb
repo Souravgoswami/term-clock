@@ -2,11 +2,11 @@
 # Encoding: UTF-8
 # Written by Sourav Goswami
 # MIT Licence
-VERSION = 0.2
+VERSION = '0.30'
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
-CONFIGURATION = File.join(__dir__, %w(term-clock clock.conf))
+CONFIGURATION = File.join(__dir__, %w(term-clock term-clock.conf))
 
 # CHARACTERS ||= File.join(%w(/ usr share term-clock characters.txt))
 # QUOTE ||= File.join(%w(/ usr share term-clock quotes.txt))
@@ -55,6 +55,8 @@ Float.define_method(:pad) { |round = 2| round(round).to_s.then { |x| x.split(?.)
 
 def generate_files(file, url, permission = 0644)
 	begin
+		t = nil
+
 		# The files will be created as root if the user is root, no need to change ownership
 		if File.exist?(file)
 			STDERR.write "This will overwrite #{file} file. Accept? [N/y]: ".colourize
@@ -63,29 +65,22 @@ def generate_files(file, url, permission = 0644)
 			STDERR.puts "Generating #{file} file...".colourize
 		end
 
-		status = false
 		cols = [63, 33, 39, 44, 49, 83, 118]
-		Thread.new { %w(| / - \\).each_with_index { |x, i| print("\e[2K" + "#{x} Downloading#{?. * (i % 4)}\r".colourize(colours: cols.rotate!)) || sleep(0.1) } until status }
+		t = Thread.new { %w(| / - \\).each_with_index { |x, i| print("\e[2K" + "#{x} Downloading#{?. * i}\r".colourize(colours: cols.rotate!)) || sleep(0.1) } while true }
 		%w(net/https fileutils).each(&method(:require))
 
 		FileUtils.mkdir(File.dirname(file)) unless Dir.exist?(File.dirname(file))
-		File.write(file, Net::HTTP.get(URI(url)))
+		File.write(file, Net::HTTP.get(URI.parse(url)))
 		FileUtils.chmod(permission, file)
-		status = true
-		sleep 0.25
 
 	rescue Errno::EACCES
-		status = true
-		sleep 0.25
 		abort "Cannot write to #{file}. Permission denied.\nPlease try running #{$0} as root".colourize
 	rescue SignalException, Interrupt, SystemExit
-		status = true
-		sleep 0.25
 		abort "Downloading is aborted. This may also lead to corrupted data.".colourize
 	rescue SocketError
-		status = true
-		sleep 0.25
 		abort "Can't download #{file}. Is there any connection issue?".colourize
+	ensure
+		t.kill if t
 	end
 
 	STDERR.puts "Generated #{file} file successfully.".colourize
@@ -135,8 +130,8 @@ def main
 
 	puts "\e[?25l" if conf_reader.('hide cursor', 'false') == 'true'
 
-	display = ->(c) { c.chars.map { |x| x.upcase.then { |y| y.eql?(?\s) ? y : characters[y] } }.then { |y| y[0].each_line.map
-		.with_index { |z, i| z.+(?\s).+(y[1..-1].map { |y| y.each_line.to_a[i] }.join).delete(?\n) }.join(?\n) } }
+	display = proc { |c| c.to_s.chars.map { |x| x.upcase.then { |y| y.eql?(?\s) ? y : characters[y] } }
+		.then { |y| y[0].to_s.split(?\n).size.times.map { |i| y.map { |y| y.split(?\n)[i] }.join.delete(?\n) }.join(?\n) } }
 
 	if display_quote
 		if File.readable?(QUOTE)
@@ -150,11 +145,13 @@ def main
 		end
 	end
 
-	q, message = display_quote ? quotes.sample.center(STDOUT.winsize[1]) : '', ''
+	q, message = display_quote ? quotes.sample : '', ''
 
 	clocks = "\xF0\x9F\x95\x8F".then { |x| 12.times.map { |y| x.next!.dup } }
-	counter = 0
+	counter, anim_bars = 0, %w(| / - \\)
+	quote_counter, anim_quote, final_quote = -1, '', ''
 
+	# display_quote = false
 	loop do
 		width = STDOUT.winsize[1]
 
@@ -184,12 +181,9 @@ def main
 		battery = if File.readable?('/sys/class/power_supply/BAT0/charge_now')
 			begin
 				status = IO.read('/sys/class/power_supply/BAT0/status').strip.downcase
-				if status == 'full'
-					" | \xE2\x9A\xA1"
-				elsif status == 'discharging'
-					" | \xF0\x9F\x94\x8B"
-				else
-					" | \xF0\x9F\x94\x8C"
+				if status == 'full' then " | \xE2\x9A\xA1"
+				elsif status == 'discharging' then " | \xF0\x9F\x94\x8B"
+				else " | \xF0\x9F\x94\x8C"
 				end + ' Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now').to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full').to_i).pad + ?%
 			rescue Exception
 				''
@@ -220,21 +214,25 @@ def main
 
 		message.replace(
 			case Time.new.hour
-				when 5..11
-					"\xF0\x9F\x8C\x85 Good Morning \xF0\x9F\x8C\x85"
-				when 12..16
-					"\xF0\x9F\x8C\x87 Good Afternoon \xF0\x9F\x8C\x87"
-				when 17..19
-					"\xF0\x9F\x8C\x86 Good Evening \xF0\x9F\x8C\x86"
-				else
-					"\xF0\x9F\x8C\x83 Good Night \xF0\x9F\x8C\x83"
+				when 5..11 then "\xF0\x9F\x8C\x85 Good Morning \xF0\x9F\x8C\x85"
+				when 12..16 then "\xF0\x9F\x8C\x87 Good Afternoon \xF0\x9F\x8C\x87"
+				when 17..19 then "\xF0\x9F\x8C\x86 Good Evening \xF0\x9F\x8C\x86"
+				else "\xF0\x9F\x8C\x83 Good Night \xF0\x9F\x8C\x83"
 			end
 		) if display_message
 
-		if Time.new.strftime('%s').to_i > quote_refreshed + quote_refresh_time
-			quote_refreshed = Time.new.strftime('%s').to_i
-			q.replace(quotes.sample.center(width))
-		end if display_quote
+		if display_quote
+			if Time.new.strftime('%s').to_i > quote_refreshed + quote_refresh_time
+				quote_refreshed, quote_counter = Time.new.strftime('%s').to_i, -1
+				q.replace(quotes.sample)
+				anim_quote.clear
+			end
+
+			anim_quote << q[quote_counter += 1] unless anim_quote.length == q.length
+			anim_bars.rotate!
+
+			final_quote.replace (anim_bars[0] +?\s + anim_quote).center(width).rstrip.colourize(colours: quote_colours) + "\e[5m" + ?|.colourize(colours: quote_colours) + "\e[0m" + ?\n * 2
+		end
 
 		info = "#{username} | #{clocks[(counter += 1) % clocks.size]} #{Time.new.strftime('%a, %b %D')}"\
 			" | \xF0\x9F\x92\xAD Memory: #{mem_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}/#{mem_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}"\
@@ -244,53 +242,42 @@ def main
 		puts "\e[3J\e[H\e[2J" +
 		(bar_colour != -1 ? info.chars.map { |x| "\e[48;5;#{bar_colour}m\e[38;5;#{bar_text_colour}m#{x}\e[0m" }.join : info.colourize(colours: bar_text_anim_colour)) +
 		?\s * (STDOUT.winsize[0]./(3.5) * width) +
-		display.(Time.new.strftime(time_format)).each_line.map { |x| x.chomp.+(?\n).then { |x| ?\s * width./(2).-(x.length / 2.5).abs + x } }
+		display.(Time.new.strftime(time_format)).each_line.map { |x| x.chomp.+(?\n).then { |x| ?\s * width./(2).-(x.length / 2).abs + x } }
 			.join.colourize(colours: colours, animate: animate, pattern: pattern).strip + ?\n +
-		message.center(width - 2).colourize(colours: message_colours) + ?\n * 2 +
-		q.colourize(colours: quote_colours)
+		final_quote +
+		message.center(width - 2).colourize(colours: message_colours)
 
 		case pattern
-			when 3, 5
-				colours.rotate!
-			when 4, 6
-				colours.rotate!(-1)
+			when 3, 5 then colours.rotate!
+			when 4, 6 then colours.rotate!(-1)
 		end
 
 		case bar_text_anim
 			when 0
-			when 1
-				bar_text_anim_colour.rotate!
-			when 2
-				bar_text_anim_colour.rotate!(-1)
-			else
-				bar_text_anim_colour.shuffle!
+			when 1 then bar_text_anim_colour.rotate!
+			when 2 then bar_text_anim_colour.rotate!(-1)
+			else bar_text_anim_colour.shuffle!
 		end
 
 		case message_animation_pattern
 			when 0
-			when 1
-				message_colours.rotate!
-			when 2
-				message_colours.rotate!(-1)
-			else
-				message_colours.shuffle!
+			when 1 then message_colours.rotate!
+			when 2 then message_colours.rotate!(-1)
+			else message_colours.shuffle!
 		end
 
 		case quote_animation_pattern
 			when 0
-			when 1
-				quote_colours.rotate!
-			when 2
-				quote_colours.rotate!(-1)
-			else
-				quote_colours.shuffle!
+			when 1 then quote_colours.rotate!
+			when 2 then quote_colours.rotate!(-1)
+			else quote_colours.shuffle!
 		end
 	end
 end
 
 begin
 	if ARGV[0].to_s[/^\-\-download\-conf$/]
-		generate_files(CONFIGURATION, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/clock.conf')
+		generate_files(CONFIGURATION, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/term-clock.conf')
 
 	elsif ARGV[0].to_s[/^\-\-download\-quote$/]
 		generate_files(QUOTE, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/quotes.txt')
@@ -299,7 +286,7 @@ begin
 		generate_files(CHARACTERS, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/characters.txt')
 
 	elsif ARGV[0].to_s[/^\-\-download\-all$/]
-		generate_files(CONFIGURATION, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/clock.conf')
+		generate_files(CONFIGURATION, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/term-clock.conf')
 		generate_files(QUOTE, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/quotes.txt')
 		generate_files(CHARACTERS, 'https://raw.githubusercontent.com/Souravgoswami/term-clock/master/term-clock/characters.txt')
 
