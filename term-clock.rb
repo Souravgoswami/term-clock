@@ -2,7 +2,12 @@
 # Encoding: UTF-8
 # Written by Sourav Goswami
 # MIT Licence
-VERSION = '0.30'
+Warning.warn("Detected system is probably not a Linux (#{RUBY_PLATFORM}) or you are not running MRI. This could cause issues.\n") || sleep(1) unless /linux/ === RUBY_PLATFORM
+abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basename($0)} --tty?' to check for a terminal...") unless STDOUT.tty?
+abort("You are using #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}, which is incompatible. Atleast Ruby 2.5 is Recommended...") if RUBY_VERSION.split(?.).first(2).join.to_i < 25
+
+# Version and files
+VERSION = '0.31'
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
@@ -12,11 +17,10 @@ CONFIGURATION = File.join(__dir__, %w(term-clock term-clock.conf))
 # QUOTE ||= File.join(%w(/ usr share term-clock quotes.txt))
 # CONFIGURATION ||= File.join(%w(/ usr share term-clock term-clock.conf))
 
+# Define method then if not defined
+Kernel.class_exec { define_method(:then) { |&b| b.call(self) } } unless defined?(Kernel.then)
 GC.start(full_mark: true, immediate_sweep: true)
 require('io/console')
-
-Warning.warn("Detected system is probably not a Linux (#{RUBY_PLATFORM}). This could cause issues.\n") || sleep(1) unless /linux/ === RUBY_PLATFORM
-abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basename($0)} --tty?' to check for a terminal...") unless STDOUT.tty?
 
 String.define_method(:colourize) do |colours: [208, 203, 198, 164, 129, 92], animate: false, pattern: 1|
 	c, final = colours.dup.tap { |y| y.concat(y.reverse) }, ''
@@ -131,7 +135,7 @@ def main
 	puts "\e[?25l" if conf_reader.('hide cursor', 'false') == 'true'
 
 	display = proc { |c| c.to_s.chars.map { |x| x.upcase.then { |y| y.eql?(?\s) ? y : characters[y] } }
-		.then { |y| y[0].to_s.split(?\n).size.times.map { |i| y.map { |y| y.split(?\n)[i] }.join.delete(?\n) }.join(?\n) } }
+		.then { |y| y[0].to_s.split(?\n).size.times.map { |i| y.map { |z| z.split(?\n)[i] }.join.delete(?\n) }.join(?\n) } }
 
 	if display_quote
 		if File.readable?(QUOTE)
@@ -151,7 +155,6 @@ def main
 	counter, anim_bars = 0, %w(| / - \\)
 	quote_counter, anim_quote, final_quote = -1, '', ''
 
-	# display_quote = false
 	loop do
 		width = STDOUT.winsize[1]
 
@@ -231,18 +234,19 @@ def main
 			anim_quote << q[quote_counter += 1] unless anim_quote.length == q.length
 			anim_bars.rotate!
 
-			final_quote.replace (anim_bars[0] +?\s + anim_quote).center(width).rstrip.colourize(colours: quote_colours) + "\e[5m" + ?|.colourize(colours: quote_colours) + "\e[0m" + ?\n * 2
+			final_quote.replace (anim_bars[0] + ?\s + anim_quote).center(width).rstrip.colourize(colours: quote_colours) +
+				"\e[5m" + ?|.colourize(colours: quote_colours) + "\e[0m" + ?\n * 2
 		end
 
 		info = "#{username} | #{clocks[(counter += 1) % clocks.size]} #{Time.new.strftime('%a, %b %D')}"\
 			" | \xF0\x9F\x92\xAD Memory: #{mem_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}/#{mem_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}"\
-			"#{swap_stats} | \xF0\x9F\xA7\xA0 CPU: #{cpu_usage}% #{battery}".center(width - 7)
+				"#{swap_stats} | \xF0\x9F\xA7\xA0 CPU: #{cpu_usage}% #{battery}".center(width - 7)
 
 		# Print to the STDOUT
 		puts "\e[3J\e[H\e[2J" +
 		(bar_colour != -1 ? info.chars.map { |x| "\e[48;5;#{bar_colour}m\e[38;5;#{bar_text_colour}m#{x}\e[0m" }.join : info.colourize(colours: bar_text_anim_colour)) +
 		?\s * (STDOUT.winsize[0]./(3.5) * width) +
-		display.(Time.new.strftime(time_format)).each_line.map { |x| x.chomp.+(?\n).then { |x| ?\s * width./(2).-(x.length / 2).abs + x } }
+		display.(Time.new.strftime(time_format)).each_line.map { |x| x.chomp.+(?\n).then { |y| ?\s * width./(2).-(y.length / 2).abs + y } }
 			.join.colourize(colours: colours, animate: animate, pattern: pattern).strip + ?\n +
 		final_quote +
 		message.center(width - 2).colourize(colours: message_colours)
@@ -315,8 +319,8 @@ begin
 
 	elsif ARGV.any? { |x| x[/^\-\-version$/] || x[/^\-v$/] }
 		STDOUT.print <<~EOF.each_line.map(&:colourize).join
-			"#{File.basename(__FILE__)} version #{VERSION}"
-			"#{RUBY_ENGINE.capitalize} Version #{RUBY_VERSION} - #{RUBY_PLATFORM}"
+			#{File.basename(__FILE__)} version #{VERSION}
+			#{RUBY_ENGINE.capitalize} Version #{RUBY_VERSION} - #{RUBY_PLATFORM}
 		EOF
 
 	elsif ARGV[0].to_s[/^\-\-colours$/]
