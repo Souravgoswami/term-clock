@@ -7,7 +7,7 @@ abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basena
 abort("You are using #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}, which is incompatible. Atleast Ruby 2.5 is Recommended...") if RUBY_VERSION.split(?.).first(2).join.to_i < 25
 
 # Version and files
-VERSION = '0.31'
+VERSION = '0.32'
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
@@ -55,7 +55,7 @@ String.define_method(:colourize) do |colours: [208, 203, 198, 164, 129, 92], ani
 	final + "\e[0m"
 end
 
-Float.define_method(:pad) { |round = 2| round(round).to_s.then { |x| x.split(?.)[1].length.then { |y| y < round ? x << ?0.*(round - y) : x } } }
+Float.define_method(:rpad) { |round = 2| round(round).to_s.then { |x| x.split(?.)[1].length.then { |y| y < round ? x << ?0.*(round - y) : x } } }
 
 def generate_files(file, url, permission = 0644)
 	begin
@@ -172,7 +172,7 @@ def main
 			swap_devs = IO.readlines('/proc/swaps')[1..-1]
 			swap_total, swap_used = swap_devs.map { |x| x.split[2].to_f }.sum, swap_devs.map { |x| x.split[3].to_f }.sum
 			unless swap_total == 0
-				" | \xF0\x9F\x92\x9E Swap: #{swap_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}/#{swap_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}"
+				" | \xF0\x9F\x92\x9E Swap: #{swap_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}/#{swap_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}"
 			else
 				''
 			end
@@ -187,7 +187,7 @@ def main
 				if status == 'full' then " | \xE2\x9A\xA1"
 				elsif status == 'discharging' then " | \xF0\x9F\x94\x8B"
 				else " | \xF0\x9F\x94\x8C"
-				end + ' Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now').to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full').to_i).pad + ?%
+				end + ' Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now').to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full').to_i).rpad.rjust(4) + ?%
 			rescue Exception
 				''
 			end
@@ -209,10 +209,10 @@ def main
 			totald = idle + (@user + @nice + @sys + @irq + @softirq + @steal) -
 			(previdle + (@prev_user + @prev_nice + @prev_sys + @prev_irq + @prev_softirq + @prev_steal))
 
-			totald.-(idle - previdle)./(totald).*(100.0).pad
+			" | \xF0\x9F\xA7\xA0 CPU: #{totald.-(idle - previdle)./(totald).*(100.0).rpad.rjust(6)}% "
 		else
 			Kernel.sleep(refresh)
-			Float::NAN
+			''
 		end
 
 		message.replace(
@@ -239,8 +239,8 @@ def main
 		end
 
 		info = "#{username} | #{clocks[(counter += 1) % clocks.size]} #{Time.new.strftime('%a, %b %D')}"\
-			" | \xF0\x9F\x92\xAD Memory: #{mem_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}/#{mem_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).pad} #{unit}"\
-				"#{swap_stats} | \xF0\x9F\xA7\xA0 CPU: #{cpu_usage}% #{battery}".center(width - 7)
+			" | \xF0\x9F\x92\xAD Memory: #{mem_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}/#{mem_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}"\
+				"#{swap_stats}#{cpu_usage}#{battery}".center(width - 7)
 
 		# Print to the STDOUT
 		puts "\e[3J\e[H\e[2J" +
