@@ -7,7 +7,7 @@ abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basena
 abort("You are using #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}, which is incompatible. Atleast Ruby 2.5 is Recommended...") if RUBY_VERSION.split(?.).first(2).join.to_i < 25
 
 # Version and files
-VERSION = '0.32'
+VERSION = '0.40'
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
@@ -81,8 +81,10 @@ def generate_files(file, url, permission = 0644)
 		abort "Cannot write to #{file}. Permission denied.\nPlease try running #{$0} as root".colourize
 	rescue SignalException, Interrupt, SystemExit
 		abort "Downloading is aborted. This may also lead to corrupted data.".colourize
-	rescue SocketError
+	rescue SocketError, OpenSSL::SSL::SSLError
 		abort "Can't download #{file}. Is there any connection issue?".colourize
+	rescue Exception => e
+		puts(e.full_message)
 	ensure
 		t.kill if t
 	end
@@ -137,6 +139,9 @@ def main
 	display = proc { |c| c.to_s.chars.map { |x| x.upcase.then { |y| y.eql?(?\s) ? y : characters[y] } }
 		.then { |y| y[0].to_s.split(?\n).size.times.map { |i| y.map { |z| z.split(?\n)[i] }.join.delete(?\n) }.join(?\n) } }
 
+	# puts display.('123456789')
+	# exit!
+
 	if display_quote
 		if File.readable?(QUOTE)
 			quotes = IO.readlines(QUOTE).uniq.map { |x| x.split(?\t).values_at(1, 0).map(&:strip).join("    -") }
@@ -152,8 +157,11 @@ def main
 	q, message = display_quote ? quotes.sample : '', ''
 
 	clocks = "\xF0\x9F\x95\x8F".then { |x| 12.times.map { |y| x.next!.dup } }
-	counter, anim_bars = 0, %w(| / - \\)
-	quote_counter, anim_quote, final_quote = -1, '', ''
+	counter, anim_bars = 0
+	anim_bars = %W(\xE2\xA0\x82 \xE2\xA0\x92 \xE2\xA0\xB2 \xE2\xA0\xB6 \xE2\xA0\xA2 \xE2\xA0\xA2 \xE2\xA0\xA2 \xE2\xA0\xA2\xE2\xA0\xA2
+					\xE2\xA0\x87 \xE2\xA0\x87 \xE2\xA0\x87 \xE2\xA0\x94 \xE2\xA0\x94 \xE2\xA0\x94 \xE2\xA0\x92 \xE2\xA0\x92)
+	anim_bars2 = %W(\xE2\xA0\x81 \xE2\xA0\x82 \xE2\xA0\x84 \xE2\xA0\x91 \xE2\xA0\x8A)
+	quote_counter, quote_anim, anim_quote, final_quote = -1, '', '', ''
 
 	loop do
 		width = STDOUT.winsize[1]
@@ -231,10 +239,14 @@ def main
 				anim_quote.clear
 			end
 
-			anim_quote << q[quote_counter += 1] unless anim_quote.length == q.length
-			anim_bars.rotate!
+			unless anim_quote.length == q.length
+				anim_quote << q[quote_counter += 1]
+				quote_anim.replace(anim_bars.rotate![0])
+			else
+				quote_anim.replace(anim_bars2.rotate![0])
+			end
 
-			final_quote.replace (anim_bars[0] + ?\s + anim_quote).center(width).rstrip.colourize(colours: quote_colours) +
+			final_quote.replace (quote_anim[0] + ?\s + anim_quote).center(width).rstrip.colourize(colours: quote_colours) +
 				"\e[5m" + ?|.colourize(colours: quote_colours) + "\e[0m" + ?\n * 2
 		end
 
