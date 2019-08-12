@@ -12,7 +12,7 @@
   + Term-clock root installer will be coming soon. However, this repo is only for non-root usage. You can grab the [source code](https://github.com/Souravgoswami/term-clock/blob/master/term-clock.rb) and run it with --download-all option.
   + If you zip download the files, you have to run the `term-clock.rb`.
   
-  Note that this program is only for GNU/Linux. But it's tested on Termux. It should also run on BSDs and MacOS though we can't guarantee the support.
+  Note that this program is only for GNU/Linux. But it's also usable on Termux (though the emojis will not get displayed well). It should also run on BSDs and MacOS though we can't guarantee the support.
 
 # Configuration ⚙️
    Read and edit the [configuration file](https://github.com/Souravgoswami/term-clock/blob/master/term-clock/clock.conf)
