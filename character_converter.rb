@@ -1,6 +1,6 @@
 #!/usr/bin/ruby -w
 
-FILE = File.join(%w(term-clock characters.txt))
+FILE = File.join(__dir__, %w(term-clock characters.txt))
 
 def convert(file, char)
 	require 'timeout'
@@ -73,12 +73,14 @@ def convert(file, char)
 	t.kill
 
 	begin
-		File.write('characters.txt', new_data)
+		File.write(file, new_data)
 	rescue Errno::EACCES
 		STDERR.puts "Sorry, but it looks like you don't have permission to write #{file}"
 	rescue Exception => e
 		STDERR.puts "\e[4mSorry #{File.basename($0)} Encountered an Error :(\e[0m\n#{e.backtrace.join}\n\n#{e.full_message}"
 	end
+
+	puts "Successflly overwritten #{file}..."
 end
 
 if ARGV.any? { |x| x[/(^\-\-help$)|(^\-h$)/] }
