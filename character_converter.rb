@@ -1,10 +1,14 @@
 #!/usr/bin/env ruby
 
+warn "Ruby version 2.5+ is recommended to run both this and term-clock... You are currently running #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}" if RUBY_VERSION.split(?.).first(2).join.to_i < 25
+
 # For regular term-clock
 FILE = File.join(__dir__, %w(term-clock characters.txt))
 
 # For root installation
 # FILE ||= File.join(%w(/ usr share term-clock characters.txt))
+
+Kernel.define_method(:then) { |&block| block.(self) } unless defined?(Kernel.then)
 
 def convert(file, char)
 	require 'timeout'
