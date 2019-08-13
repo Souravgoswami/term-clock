@@ -1,6 +1,10 @@
-#!/usr/bin/ruby -w
+#!/usr/bin/env ruby
 
+# For regular term-clock
 FILE = File.join(__dir__, %w(term-clock characters.txt))
+
+# For root installation
+# FILE ||= File.join(%w(/ usr share term-clock characters.txt))
 
 def convert(file, char)
 	require 'timeout'
@@ -14,7 +18,7 @@ def convert(file, char)
 		else
 			"Looks like you have #{char.length} characters rather than 1.This could create problems while running term-clock..."
 		end
-	 
+
 		w = Thread.new do
 			text.tap do |x|
 				x.length.times { |y| print(" \e[2K#{anim.rotate![0]} #{x[0..y]}\r") || sleep(0.01) }
@@ -58,7 +62,7 @@ def convert(file, char)
 	puts new_data
 
 	t = Thread.new do
-		"Press Enter to write the data to #{file}. [ctrl + c] to exit...".tap do |x|
+		"Press Enter to write the data to #{File.basename(file)}. [ctrl + c] to exit...".tap do |x|
 			x.length.times { |i| print(" \e[2K#{anim.rotate![0]} :: #{x[0...i]}#{x[i].swapcase}#{x[i.next..-1]}\r") || sleep(0.025) }
 			x.length.times { |i| print(" \e[2K#{anim.rotate![0]} :: #{x[i..-1]}#{x[0..i]}\r") || sleep(0.025) }
 		end while true
@@ -74,13 +78,12 @@ def convert(file, char)
 
 	begin
 		File.write(file, new_data)
+		puts "Successflly overwritten #{file}..."
 	rescue Errno::EACCES
 		STDERR.puts "Sorry, but it looks like you don't have permission to write #{file}"
 	rescue Exception => e
 		STDERR.puts "\e[4mSorry #{File.basename($0)} Encountered an Error :(\e[0m\n#{e.backtrace.join}\n\n#{e.full_message}"
 	end
-
-	puts "Successflly overwritten #{file}..."
 end
 
 if ARGV.any? { |x| x[/(^\-\-help$)|(^\-h$)/] }
