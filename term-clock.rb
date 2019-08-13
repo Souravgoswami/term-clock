@@ -27,13 +27,12 @@ String.define_method(:colourize) do |colours: [208, 203, 198, 164, 129, 92], ani
 
 	each_line do |str|
 		colour, len = c, str.length
-		colour_size = colour.size
-		div, i, index = str.length./(colour_size).then { |x| x.zero? ? 1 : x }, -1, 0
+		colour_size = colour.size - 1
+		div, i, index = str.length./(colour_size.next).then { |x| x.zero? ? 1 : x }, -1, 0
 
 		while i < len
-			ch = str[i += 1]
-			index += 1 if i > 1 && i.%(div).zero? && index < colour_size
-			final.concat "\e[38;5;#{colour[index]}m#{ch}"
+			index += 1 if (i += 1) > 1 && i.%(div).zero? && index < colour_size
+			final.concat "\e[38;5;#{colour[index]}m#{str[i]}"
 
 			if animate
 				colour.shuffle! if pattern == 11
