@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 # Encoding: UTF-8
+# Frozen_string_literal: false
 # Written by Sourav Goswami
 # MIT Licence
 Warning.warn("Detected system is probably not a Linux (#{RUBY_PLATFORM}) or you are not running MRI. This could cause issues.\n") || sleep(1) unless /linux/ === RUBY_PLATFORM
@@ -7,7 +8,7 @@ abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basena
 abort("You are using #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}, which is incompatible. Atleast Ruby 2.5 is Recommended...") if RUBY_VERSION.split(?.).first(2).join.to_i < 25
 
 # Version and files
-VERSION = '0.40'
+VERSION = '0.41'
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
@@ -69,7 +70,8 @@ def generate_files(file, url, permission = 0644)
 		end
 
 		cols = [63, 33, 39, 44, 49, 83, 118]
-		t = Thread.new { %w(| / - \\).each_with_index { |x, i| print("\e[2K" + "#{x} Downloading#{?. * i}\r".colourize(colours: cols.rotate!)) || sleep(0.1) } while true }
+		t = Thread.new { %W(\xE2\xA0\x82 \xE2\xA0\x92 \xE2\xA0\xB2 \xE2\xA0\xB6 \xE2\xA0\x94)
+			.each_with_index { |x, i| print("\e[2K" + "#{x} Downloading#{?. * i}\r".colourize(colours: cols.rotate!)) || sleep(0.1) } while true }
 		%w(net/https fileutils).each(&method(:require))
 
 		FileUtils.mkdir(File.dirname(file)) unless Dir.exist?(File.dirname(file))
@@ -126,20 +128,17 @@ def main
 
 	display_message = conf_reader.('display message', 'true') != 'false'
 	message_colours = conf_reader.('message colours', '129').split(?,).map(&:strip).then { |x| x.size < 1 ? [129, 129] : x.size == 1 ? x + x : x }
-	message_animation_pattern = conf_reader.('message animation pattern', '1').to_i
+	message_animation_pattern = conf_reader.('message animation pattern', ?1).to_i
 
 	display_quote = conf_reader.('display quote', 'true') != 'false'
 	quote_colours = conf_reader.('quote colours', '184, 208, 203, 198, 164, 129, 92').split(?,).map(&:strip).then { |x| x.size < 1 ? [129, 129] : x.size == 1 ? x + x : x }
-	quote_animation_pattern = conf_reader.('quote animation pattern', '0').to_i
-	quote_refresh_time = conf_reader.('quote refresh time', '2').to_f
+	quote_animation_pattern = conf_reader.('quote animation pattern', ?0).to_i
+	quote_refresh_time = conf_reader.('quote refresh time', '15').to_f
 
 	puts "\e[?25l" if conf_reader.('hide cursor', 'false') == 'true'
 
 	display = proc { |c| c.to_s.chars.map { |x| x.upcase.then { |y| y.eql?(?\s) ? y : characters[y] } }
 		.then { |y| y[0].to_s.split(?\n).size.times.map { |i| y.map { |z| z.split(?\n)[i] }.join.delete(?\n) }.join(?\n) } }
-
-	# puts display.('123456789')
-	# exit!
 
 	if display_quote
 		if File.readable?(QUOTE)
@@ -168,7 +167,7 @@ def main
 		# Calculate Memory Usage
 		mem_used = if File.readable?('/proc/meminfo')
 			mem_total, mem_available = IO.readlines('/proc/meminfo').values_at(0, 2).map { |x| x.split[1].to_f }
-			mem_total.-(mem_available)
+			mem_total - mem_available
 		else
 			mem_total = mem_available = 0.0
 			0.0
@@ -176,9 +175,9 @@ def main
 
 		# Calculate Swap Usage
 		swap_stats = if File.readable?('/proc/swaps')
-			swap_devs = IO.readlines('/proc/swaps')[1..-1]
+			swap_devs = IO.readlines('/proc/swaps').drop(1)
 			swap_total, swap_used = swap_devs.map { |x| x.split[2].to_f }.sum, swap_devs.map { |x| x.split[3].to_f }.sum
-			unless swap_total == 0
+			unless swap_total.zero?
 				" | \xF0\x9F\x92\x9E Swap: #{swap_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}/#{swap_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}"
 			else
 				''
@@ -232,21 +231,24 @@ def main
 		) if display_message
 
 		if display_quote
-			if Time.new.strftime('%s').to_i > quote_refreshed + quote_refresh_time
+			if anim_quote.empty?
 				quote_refreshed, quote_counter = Time.new.strftime('%s').to_i, -1
 				q.replace(quotes.sample)
 				anim_quote.clear
 			end
 
-			unless anim_quote.length == q.length
-				anim_quote << q[quote_counter += 1]
+			unless anim_quote.length.eql?(q.length) || Time.new.strftime('%s').to_i > quote_refreshed + quote_refresh_time
+				anim_quote << q[quote_counter += 1].to_s
 				quote_anim.replace(anim_bars.rotate![0])
 			else
 				quote_anim.replace(anim_bars2.rotate![0])
 			end
 
-			final_quote.replace (quote_anim[0] + ?\s + anim_quote).center(width).rstrip.colourize(colours: quote_colours) +
-				"\e[5m" + ?|.colourize(colours: quote_colours) + "\e[0m" + ?\n * 2
+			if Time.new.strftime('%s').to_i > quote_refreshed + quote_refresh_time
+				final_quote.replace(((quote_anim[0] + ?\s + anim_quote.chop!.to_s).center(width).rstrip).colourize + "\e[5m" + ?| + "\e[0m" + ?\n * 2)
+			else
+				final_quote.replace(((quote_anim[0] + ?\s + anim_quote).center(width).rstrip).colourize + "\e[5m" + ?| + "\e[0m" + ?\n * 2)
+			end
 		end
 
 		info = "#{username} | #{clocks[(counter += 1) % clocks.size]} #{Time.new.strftime('%a, %b %D')}"\
@@ -367,7 +369,7 @@ begin
 	end
 
 rescue SignalException, Interrupt, SystemExit
-	puts "\e[?25h\e[0m\n"
+	puts "\e[?25h\e[0m"
 
 rescue Errno::ENOTTY
 	puts "Uh Oh! No terminal found. Please Run this in a terminal.\nOptionally run #{$0} --tty? to check for a TTY".colourize
