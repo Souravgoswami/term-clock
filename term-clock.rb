@@ -3,12 +3,13 @@
 # Frozen_string_literal: false
 # Written by Sourav Goswami
 # MIT Licence
+
 Warning.warn("Detected system is probably not a Linux (#{RUBY_PLATFORM}) or you are not running MRI. This could cause issues.\n") || sleep(1) unless /linux/ === RUBY_PLATFORM
 abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basename($0)} --tty?' to check for a terminal...") unless STDOUT.tty?
 abort("You are using #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}, which is incompatible. Atleast Ruby 2.5 is Recommended...") if RUBY_VERSION.split(?.).first(2).join.to_i < 25
 
 # Version and files
-VERSION = '0.42'
+VERSION = '0.50'
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
@@ -17,6 +18,10 @@ CONFIGURATION = File.join(__dir__, %w(term-clock term-clock.conf))
 # CHARACTERS ||= File.join(%w(/ usr share term-clock characters.txt))
 # QUOTE ||= File.join(%w(/ usr share term-clock quotes.txt))
 # CONFIGURATION ||= File.join(%w(/ usr share term-clock term-clock.conf))
+
+# Stop flickering the clock while running in the TTYs!
+CLEAR = ENV.key?('COLORTERM') ? "\e[3J\e[H\e[2J" : "\e[H"
+print "\e[2J\e[H\e[J" unless ENV.key?('COLORTERM')
 
 # Define method then if not defined
 Kernel.class_exec { define_method(:then) { |&b| b.call(self) } } unless defined?(Kernel.then)
@@ -52,8 +57,10 @@ String.define_method(:colourize) do |colours: [208, 203, 198, 164, 129, 92], ani
 			colours.rotate!(-1) if pattern == 10
 		end
 	end
-	final + "\e[0m"
-end
+	final << "\e[0m"
+end unless ARGV.any? { |x| x[/^\-\-no\-colour$/] }
+
+String.define_method(:colourize) { |arg = nil| self.replace("\e[0m#{self}") } if ARGV.any? { |x| x[/^\-\-no\-colour$/] }
 
 Float.define_method(:rpad) { |round = 2| round(round).to_s.then { |x| x.split(?.)[1].length.then { |y| y < round ? x << ?0.*(round - y) : x } } }
 
@@ -64,7 +71,7 @@ def generate_files(file, url, permission = 0644)
 		# The files will be created as root if the user is root, no need to change ownership
 		if File.exist?(file)
 			STDERR.write "This will overwrite #{file} file. Accept? [N/y]: ".colourize
-			return unless STDIN.gets.to_s.strip.downcase[0] == 'y'
+			return unless STDIN.gets.to_s.strip.downcase[0] == ?y
 		else
 			STDERR.puts "Generating #{file} file...".colourize
 		end
@@ -105,8 +112,8 @@ def main
 	characters = IO.read(CHARACTERS).split(/#+/).reject(&:empty?).reduce({}) do |x, y|
 		lines = y.strip.split(y.lstrip[0])[1]
 		max = lines.each_line.map(&:length).max.next
-		x.merge(y.lstrip[0] => lines.each_line.map { |z| z.chomp.ljust(max) + ?\n }.join)
-	end
+		x.merge!(y.lstrip[0] => lines.each_line.map { |z| z.chomp.ljust(max) + ?\n }.join)
+	end.freeze
 
 	conf = IO.readlines(CONFIGURATION).reverse.map(&:strip).reject { |x| x.strip.start_with?(?#).|(x.empty?) }
 	conf_reader = lambda { |a, default = ''| conf.find { |x| x.split(?=)[0].to_s.strip.downcase.eql?(a.downcase) }
@@ -246,9 +253,9 @@ def main
 			end
 
 			if Time.new.strftime('%s').to_i > quote_refreshed + quote_refresh_time
-				final_quote.replace(((quote_anim[0] + ?\s + anim_quote.chop!.to_s).center(width).rstrip).colourize + "\e[5m" + ?| + "\e[0m" + ?\n * 2)
+				final_quote.replace(((quote_anim[0] + ?\s + anim_quote.chop!.to_s + ?|).center(width)).colourize + "\e[0m\n\n")
 			else
-				final_quote.replace(((quote_anim[0] + ?\s + anim_quote).center(width).rstrip).colourize + "\e[5m" + ?| + "\e[0m" + ?\n * 2)
+				final_quote.replace(((quote_anim[0] + ?\s + anim_quote).center(width).rstrip).colourize + "\e[5m|\e[0m\n\n")
 			end
 		end
 
@@ -265,8 +272,8 @@ def main
 			final_quote +
 			message.center(width - 2).colourize(colours: message_colours)
 		)
-		puts "\e[2J\e[H\e[3J#{output}\e[0m"
-
+		# puts "\e[2J\e[H\e[3J#{output}\e[0m"
+		print "#{CLEAR}#{output}"
 		case pattern
 			when 3, 5 then colours.rotate!
 			when 4, 6 then colours.rotate!(-1)
@@ -313,14 +320,18 @@ begin
 	elsif ARGV.any? { |x| x[/^\-\-help/] || x[/^\-h$/] }
 		STDOUT.puts <<~EOF.each_line.map(&:colourize).join
 			This is term-clock. A lightweight digital clock for your GNU/Linux system.
+
 			Configuration: The configuration can be found in #{CONFIGURATION}.
 				Read the file for more info.
+
 			Quotes: Generally all the quotes are in #{QUOTE}.
 				You can edit them if you like.
+
 			Characters: All the characters are specified in #{CHARACTERS}.
 				If you want to add a different time format in the
 				configuration file, you have to make sure the character
 				exist in the file. There are currently 0-9, A-Z, : characters.
+
 			Arguments: The available arguments that #{File.basename(__FILE__)} accepts are:
 					1. --download-conf         Downloads the configuration file from the internet.
 					2. --download-quote        Downloads missing quote file from the internet.
@@ -328,9 +339,10 @@ begin
 					4. --download-all          Downloads all the necessary files to run term-clock.
 					5. --help / -h             To visit this help section again.
 					6. --version / -v          To review the term-clock version.
-					7. --colours                Shows all the available colours
+					7. --colours               Shows all the available colours
 					8. --tty?                  Shows if the current terminal is TTY.
 					                           [Generally code editors are not TTY]
+					9. --no-colour             Disables all the colour effects [in the clock only]
 		EOF
 
 	elsif ARGV.any? { |x| x[/^\-\-version$/] || x[/^\-v$/] }
@@ -341,7 +353,7 @@ begin
 
 	elsif ARGV[0].to_s[/^\-\-colours$/]
 		STDOUT.print 15.then { |i| 6.times.map { 6.times.map { 6.times.map { "\e[48;5;#{i += 1}m#{i.to_s.center(8)}\e[0m" }.join } }
-        		.each_slice(STDOUT.winsize[1] / 48).map { |x| 6.times.map { |y| x.map { |z| z.at(y) }.join(?\s) }.join(?\n) + ?\n }.join(?\n) }
+        		.each_slice(STDOUT.winsize[1] / 49).map { |x| 6.times.map { |y| x.map { |z| z.at(y) }.join(?\s) }.join(?\n) + ?\n }.join(?\n) }
 
 	elsif ARGV[0].to_s[/^\-\-tty\?$/]
 		unless STDOUT.tty?
@@ -361,13 +373,16 @@ begin
 			main
 		end
 
+	elsif ARGV.any? { |x| x[/^\-\-no\-colour$/] }
+		main
+
 	elsif !ARGV.empty?
-		STDERR.puts "Invalid Argument #{ARGV[0].dump}!".colourize + ?\n +
+		STDERR.puts "Invalid Argument #{ARGV[0].dump}!".colourize + ?\n * 2 +
 		"Avaiable Arguments are:
 		(1) --download-conf (2) --download-quote (3) --download-characters
 		(4) --download-all  (5) --help / -h      (6) --version / -v
-		(7) --colours       (8) --tty?\n".colourize +
-		"Please run #{$0} --help/-h for help...".colourize
+		(7) --colours       (8) --tty?           (9) --no-colour\n".colourize + ?\n +
+		"Please run #{$0} --help/-h for more information...".colourize
 	else
 		main
 	end
