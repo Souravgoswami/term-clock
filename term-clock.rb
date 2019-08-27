@@ -8,7 +8,7 @@ abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basena
 abort("You are using #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}, which is incompatible. Atleast Ruby 2.5 is Recommended...") if RUBY_VERSION.split(?.).first(2).join.to_i < 25
 
 # Version and files
-VERSION = '0.41'
+VERSION = '0.42'
 
 CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
 QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
@@ -33,7 +33,7 @@ String.define_method(:colourize) do |colours: [208, 203, 198, 164, 129, 92], ani
 
 		while i < len
 			index += 1 if (i += 1) > 1 && i.%(div).zero? && index < colour_size
-			final.concat "\e[38;5;#{colour[index]}m#{str[i]}"
+			final << "\e[38;5;#{colour[index]}m#{str[i]}"
 
 			if animate
 				colour.shuffle! if pattern == 11
@@ -160,6 +160,7 @@ def main
 					\xE2\xA0\x87 \xE2\xA0\x87 \xE2\xA0\x87 \xE2\xA0\x94 \xE2\xA0\x94 \xE2\xA0\x94 \xE2\xA0\x92 \xE2\xA0\x92)
 	anim_bars2 = %W(\xE2\xA0\x81 \xE2\xA0\x82 \xE2\xA0\x84 \xE2\xA0\x91 \xE2\xA0\x8A)
 	quote_counter, quote_anim, anim_quote, final_quote = -1, '', '', ''
+	output = ''
 
 	loop do
 		width = STDOUT.winsize[1]
@@ -253,16 +254,18 @@ def main
 
 		info = "#{username} | #{clocks[(counter += 1) % clocks.size]} #{Time.new.strftime('%a, %b %D')}"\
 			" | \xF0\x9F\x92\xAD Memory: #{mem_used.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}/#{mem_total.send(:/, unit == 'MIB' ? 1024.0 : 1000.0).rpad} #{unit}"\
-				"#{swap_stats}#{cpu_usage}#{battery}".center(width - 7)
+				"#{swap_stats}#{cpu_usage}#{battery}".center(width - 6)
 
-		# Print to the STDOUT
-		puts "\e[3J\e[H\e[2J" +
-		(bar_colour != -1 ? info.chars.map { |x| "\e[48;5;#{bar_colour}m\e[38;5;#{bar_text_colour}m#{x}\e[0m" }.join : info.colourize(colours: bar_text_anim_colour)) +
-		?\s * (STDOUT.winsize[0]./(3.5) * width) +
-		display.(Time.new.strftime(time_format)).each_line.map { |x| x.chomp.+(?\n).then { |y| ?\s * width./(2).-(y.length / 2).abs + y } }
-			.join.colourize(colours: colours, animate: animate, pattern: pattern).strip + ?\n +
-		final_quote +
-		message.center(width - 2).colourize(colours: message_colours)
+		# Print to the STDOUT. replace output everytime and then print everything to avoid waiting for calculations after the screen is cleared.
+		output.replace(
+			(bar_colour != -1 ? info.chars.map { |x| "\e[48;5;#{bar_colour}m\e[38;5;#{bar_text_colour}m#{x}\e[0m" }.join: info.colourize(colours: bar_text_anim_colour)) +
+			?\s * (STDOUT.winsize[0]./(3) * width) +
+			display.(Time.new.strftime(time_format)).each_line.map { |x| x.chomp.+(?\n).then { |y| ?\s * width./(2).-(y.length / 2).abs + y } }
+				.join.colourize(colours: colours, animate: animate, pattern: pattern).strip + ?\n +
+			final_quote +
+			message.center(width - 2).colourize(colours: message_colours)
+		)
+		puts "\e[2J\e[H\e[3J#{output}\e[0m"
 
 		case pattern
 			when 3, 5 then colours.rotate!
@@ -337,7 +340,8 @@ begin
 		EOF
 
 	elsif ARGV[0].to_s[/^\-\-colours$/]
-		STDOUT.puts((0..255).map { |x| "\e[48;5;#{x}m" + "\e[38;5;231m" + x.to_s.center(8) + "\e[0m" }.join )
+		STDOUT.print 15.then { |i| 6.times.map { 6.times.map { 6.times.map { "\e[48;5;#{i += 1}m#{i.to_s.center(8)}\e[0m" }.join } }
+        		.each_slice(STDOUT.winsize[1] / 48).map { |x| 6.times.map { |y| x.map { |z| z.at(y) }.join(?\s) }.join(?\n) + ?\n }.join(?\n) }
 
 	elsif ARGV[0].to_s[/^\-\-tty\?$/]
 		unless STDOUT.tty?
@@ -350,7 +354,7 @@ begin
 				A TTY is running.
 				Note that This program should support Tilix (terminix), GNOME Terminal, XFCE Terminal, LX
 				Terminal, Konsole, Terminilogy, XTerm, UXterm, etc
-				Terminals like Cool-Retro-Term may not display emoji correctly.
+				Terminals like Cool-Retro-Term may not display emoji correctly even if proper font(s) is/are installed.
 				Also note to run this program to all intents and purposes, you need noto-fonts and noto-fonts-emoji to display characters and emojis.
 			EOF
 			sleep 2
