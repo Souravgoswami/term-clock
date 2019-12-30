@@ -37,4 +37,4 @@ It converts all the characters in the characters.txt to something else you speci
 
 # Preview 📸
 ![Screenshot 1](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/1.png)
-![Screenshot 2](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/1.png)
+![Screenshot 2](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/2.png)
