@@ -15,7 +15,7 @@
   Note that this program is only for GNU/Linux. But it's also usable on Termux (though the emojis will not get displayed well). It should also run on BSDs and MacOS though we can't guarantee the support.
 
 # Configuration ⚙️
-   Read and edit the [configuration file](https://github.com/Souravgoswami/term-clock/blob/master/term-clock/clock.conf)
+   Read and edit the [configuration file](https://github.com/Souravgoswami/term-clock/blob/master/term-clock/term-clock.conf)
    according to your need.
 
 # Arguments 💡
