@@ -6,7 +6,7 @@
   + Ruby: The program is written in Ruby. So you need to download the Ruby interpreter (ruby 2.5+) to run:
       `ruby term-clock.rb`
 
-  + Fonts: The noto-fonts and noto-fonts-emoji are neededto display unicode characters used in this program.
+  + Fonts: The noto-fonts and noto-fonts-emoji are needed to display unicode characters used in this program.
   
 # Usage and Running 🔄
   + Term-clock root installer will be coming soon. However, this repo is only for non-root usage. You can grab the [source code](https://github.com/Souravgoswami/term-clock/blob/master/term-clock.rb) and run it with --download-all option.
