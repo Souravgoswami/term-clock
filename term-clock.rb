@@ -3,34 +3,31 @@
 # Frozen_string_literal: false
 # Written by Sourav Goswami
 # MIT Licence
+$-v = true
 
 Warning.warn("Detected system is probably not a Linux (#{RUBY_PLATFORM}) or you are not running MRI. This could cause issues.\n") || sleep(1) unless /linux/ === RUBY_PLATFORM
 abort("#{File.basename($0)} didn't find any terminal. You can run `#{File.basename($0)} --tty?' to check for a terminal...") unless STDOUT.tty?
 abort("You are using #{RUBY_ENGINE.capitalize} #{RUBY_VERSION}, which is incompatible. Atleast Ruby 2.5 is Recommended...") if RUBY_VERSION.split(?.).first(2).join.to_i < 25
 
 # Version and files
-VERSION = '0.51'
+VERSION = '0.60'
+ROOT = false
 
-CHARACTERS = File.join(__dir__, %w(term-clock characters.txt))
-QUOTE = File.join(__dir__, %w(term-clock quotes.txt))
-CONFIGURATION = File.join(__dir__, %w(term-clock term-clock.conf))
-
-# CHARACTERS ||= File.join(%w(/ usr share term-clock characters.txt))
-# QUOTE ||= File.join(%w(/ usr share term-clock quotes.txt))
-# CONFIGURATION ||= File.join(%w(/ usr share term-clock term-clock.conf))
+CHARACTERS = ROOT ? File.join(%w(/ usr share term-clock characters.txt)) : File.join(Dir.pwd, %w(term-clock characters.txt))
+QUOTE = ROOT ? File.join(%w(/ usr share term-clock quotes.txt)) : File.join(Dir.pwd, %w(term-clock quotes.txt))
+CONFIGURATION = ROOT ? File.join(%w(/ usr share term-clock term-clock.conf)) : File.join(Dir.pwd, %w(term-clock term-clock.conf))
 
 # Stop flickering the clock while running in the TTYs!
-CLEAR = ENV.key?('COLORTERM') ? "\e[3J\e[H\e[2J" : "\e[H"
+COLOURTERM = ENV.key?('COLORTERM')
+CLEAR = COLOURTERM ? "\e[3J\e[H\e[2J" : "\e[H"
 $-n, $-s = ?\n, ?\s
 CPU_USAGE = '/proc/stat'
 MEMINFO = '/proc/meminfo'
 SWAPINFO = '/proc/swaps'
 
-print "\e[2J\e[H\e[J" unless ENV.key?('COLORTERM')
-
-# Define method then if not defined
 Kernel.class_exec { define_method(:then) { |&b| b === self } } unless defined?(Kernel.then)
 GC.start(full_mark: true, immediate_sweep: true)
+
 require('io/console')
 
 String.define_method(:colourize) do |colours: [208, 203, 198, 164, 129, 92], animate: false, pattern: 1|
@@ -66,8 +63,7 @@ String.define_method(:colourize) do |colours: [208, 203, 198, 164, 129, 92], ani
 end unless ARGV.any? { |x| x[/^\-\-no\-colour$/] }
 
 String.define_method(:colourize) { |arg = nil| self.replace("\e[0m#{self}") } if ARGV.any? { |x| x[/^\-\-no\-colour$/] }
-
-Float.define_method(:rpad) { |round = 2| round(round).to_s.then { |x| x.split(?.)[1]&.length&.then { |y| y < round ? x << ?0.*(round - y) : x } }.to_s }
+Float.define_method(:rpad) { |round = 2| round(round).to_s.then { |x| x.split(?.)[1]&.length&.then { |y| y < round ? x << ?0.freeze.*(round - y).freeze : x } }.to_s }
 
 def generate_files(file, url, permission = 0644)
 	begin
@@ -83,12 +79,13 @@ def generate_files(file, url, permission = 0644)
 
 		cols = [63, 33, 39, 44, 49, 83, 118]
 		t = Thread.new { %W(\xE2\xA0\x82 \xE2\xA0\x92 \xE2\xA0\xB2 \xE2\xA0\xB6 \xE2\xA0\x94)
-			.each_with_index { |x, i| print("\e[2K" + "#{x} Downloading#{?. * i}\r".colourize(colours: cols.rotate!)) || sleep(0.1) } while true }
-		%w(net/https fileutils).each(&method(:require))
+			.each_with_index { |x, i| print("\e[2K" + "#{x} Downloading#{?. * i}\r".colourize(colours: cols.rotate!).freeze) || sleep(0.1) } while true }
 
-		FileUtils.mkdir(File.dirname(file)) unless Dir.exist?(File.dirname(file))
+		require('net/https')
+
+		Dir.mkdir(File.dirname(file)) unless Dir.exist?(File.dirname(file))
 		File.write(file, Net::HTTP.get(URI.parse(url)))
-		FileUtils.chmod(permission, file)
+		File.chmod(permission, file)
 
 	rescue Errno::EACCES
 		abort "Cannot write to #{file}. Permission denied.\nPlease try running #{$0} as root".colourize
@@ -114,10 +111,10 @@ def main
 		"Character mapping file #{CHARACTERS} #{File.exist?(CHARACTERS) ? 'cannot be read' : 'is not found'}!\nRun #{$0} --download-characters to get a #{CHARACTERS} file.".colourize
 	) unless File.readable?(CHARACTERS)
 
-	characters = IO.read(CHARACTERS).split(/#+/).reject(&:empty?).reduce({}) do |x, y|
-		lines = y.strip.split(y.lstrip[0])[1]
-		max = lines.lines.map!(&:length).max + 1
-		x.merge!(y.lstrip[0] => lines.lines.map! { |z| z.chomp.ljust(max) + $-n }.join)
+	characters = IO.read(CHARACTERS).split(/#+/).reject!(&:empty?).reduce({}) do |x, y|
+		lines = y.tap(&:lstrip!).split(y[0].freeze)[1]
+		max = lines.lines.max_by(&:length).length + 1
+		x.merge!(y[0] => lines.lines.each { |z| z.replace(z.chomp.ljust(max) + $-n) }.join)
 	end.freeze
 
 	conf = IO.readlines(CONFIGURATION).reverse.map!(&:strip).reject! { |x| x.strip.start_with?(?#).|(x.empty?) }
@@ -136,7 +133,7 @@ def main
 	bar_text_anim_colour = 	conf_reader.('bar text animate colours', '10').split(?,).map!(&:strip).then { |x| x.size < 1 ? [129, 129] : x.size == 1 ? x + x : x }
 	bar_text_anim = conf_reader.('bar text animation pattern', ?1).to_i
 
-	username = conf_reader.('username', 'auto').then { |x| x == 'auto' ? ENV['USER'].to_s : x }.split.map!(&:capitalize).join.strip.then { |x| "\xF0\x9F\x91\xA4 #{x}" }
+	username = conf_reader.('username', 'auto').then { |x| x == 'auto' ? ENV['USER'].to_s : x }.split.each(&:capitalize!).join.tap { |x| x.replace("\xF0\x9F\x91\xA4 #{x.tap(&:strip)}") }
 
 	display_message = conf_reader.('display message', 'true') != 'false'
 	message_colours = conf_reader.('message colours', '129').split(?,).map!(&:strip).then { |x| x.size < 1 ? [129, 129] : x.size == 1 ? x + x : x }
@@ -147,6 +144,11 @@ def main
 	quote_animation_pattern = conf_reader.('quote animation pattern', ?0).to_i
 	quote_refresh_time = conf_reader.('quote refresh time', '15').to_f
 
+	morning_message = conf_reader.('Morning Message', " \xF0\x9F\x8C\x85 Good Morning  \xF0\x9F\x8C\x85")
+	afternoon_message = conf_reader.('Afternoon Message', " \xF0\x9F\x8C\x87 Good Afternoon \xF0\x9F\x8C\x87")
+	evening_message = conf_reader.('Evening Message', "\xF0\x9F\x8C\x86 Good Evening \xF0\x9F\x8C\x86")
+	night_message = conf_reader.('Night Message', "\xF0\x9F\x8C\x83 Good Night \xF0\x9F\x8C\x83")
+
 	puts "\e[?25l" if conf_reader.('hide cursor', 'false') == 'true'
 
 	display = proc do |c|
@@ -154,9 +156,14 @@ def main
 			.then { |y| y[0].to_s.split($-n).size.times.map { |i| y.map { |z| z.lines[i] }.join.delete($-n) }.join($-n) }
 	end
 
+	display = proc do |c|
+		c.to_s.chars.each { |x| x.replace(x.upcase.then { |y| characters.fetch(y) { y } }) }
+			.then { |y| y[0].to_s.split($-n).size.times.map { |i| y.map { |z| z.lines[i] }.join.delete($-n) }.join($-n) }
+	end
+
 	if display_quote
 		if File.readable?(QUOTE)
-			quotes = IO.readlines(QUOTE).uniq.map! { |x| x.split(?\t).values_at(1, 0).map!(&:strip).join("    -") }
+			quotes = IO.readlines(QUOTE).uniq.map! { |x| x.split(?\t).values_at(1, 0).each(&:strip!).join("    -".freeze) }
 			quote_refreshed = Time.now.to_i
 		else
 			Kernel.warn(QUOTE.colourize + (File.exist?(QUOTE) ? ' is not readable' : ' does not exist').+('... Disabling quotes.').colourize)
@@ -166,6 +173,7 @@ def main
 		end
 	end
 
+	gc_compact, gc_compacted = GC.respond_to?(:compact), Time.now.to_i + 7200
 	q, message = display_quote ? quotes.sample : '', ''
 
 	clocks, counter = "\xF0\x9F\x95\x8F".then { |x| 12.times.map { |y| x.next!.dup } }, 0
@@ -174,12 +182,13 @@ def main
 	anim_bars2 = %W(\xE2\xA0\x81 \xE2\xA0\x82 \xE2\xA0\x84 \xE2\xA0\x91 \xE2\xA0\x8A)
 	quote_counter, quote_anim, anim_quote, final_quote = -1, '', '', ''
 
-	loop do
-		width = STDOUT.winsize[1]
+	print "\e[2J\e[H\e[3J" unless COLOURTERM
+	while true
+		width, time_now = STDOUT.winsize[1], Time.now.to_i
 
 		# Calculate Memory Usage
 		mem_used = if File.readable?(MEMINFO)
-			mem_total, mem_available = IO.readlines(MEMINFO).values_at(0, 2).map! { |x| x.split[1].to_f }
+			mem_total, mem_available = IO.foreach(MEMINFO).first(3).then { |x| [x[0].split[1].to_f, x[2].split[1].to_f] }
 			mem_total - mem_available
 		else
 			mem_total = mem_available = 0.0
@@ -187,15 +196,16 @@ def main
 
 		# Calculate Swap Usage
 		swap_stats = if File.readable?(SWAPINFO)
-			swap_devs = IO.readlines(SWAPINFO).drop(1)
-			swap_total, swap_used = swap_devs.map { |x| x.split[2].to_f }.sum, swap_devs.map { |x| x.split[3].to_f }.sum
+			swap_devs = IO.readlines(SWAPINFO).drop(1).map!(&:split)
+			swap_total, swap_used = swap_devs.map { |x| x[2].to_f }.sum, swap_devs.map { |x| x[3].to_f }.sum
+
 			unless swap_total.zero?
 				" | \xF0\x9F\x92\x9E Swap: #{swap_used.send(:/, unit == 'MIB'.freeze ? 1024.0 : 1000.0).rpad} #{unit}/#{swap_total.send(:/, unit == 'MIB'.freeze ? 1024.0 : 1000.0).rpad} #{unit}"
 			else
-				''
+				''.freeze
 			end
 		else
-			''
+			''.freeze
 		end
 
 		# Calculate battery usage
@@ -205,21 +215,19 @@ def main
 				if status == 'full'.freeze then " | \xE2\x9A\xA1".freeze
 				elsif status == 'discharging'.freeze then " | \xF0\x9F\x94\x8B".freeze
 				else " | \xF0\x9F\x94\x8C".freeze
-				end + ' Battery: ' + IO.read('/sys/class/power_supply/BAT0/charge_now'.freeze).to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full'.freeze).to_i).rpad.rjust(4) + ?%
+				end + ' Battery: '.freeze + IO.read('/sys/class/power_supply/BAT0/charge_now'.freeze).to_i.*(100.0)./(IO.read('/sys/class/power_supply/BAT0/charge_full'.freeze).to_i).rpad.rjust(4) + ?%
 			rescue Exception
-				''
+				''.freeze
 			end
 		else
-			''
+			''.freeze
 		end
 
 		# Calculate CPU usage
 		cpu_usage = if File.readable?(CPU_USAGE)
-			prev_file = IO.readlines(CPU_USAGE).select! { |line| line.start_with?('cpu'.freeze) }
+			prev_data = IO.foreach(CPU_USAGE).detect { |line| line[0..2] == 'cpu'.freeze }.split.map!(&:to_f)
 			Kernel.sleep(refresh)
-			file = IO.readlines(CPU_USAGE).select! { |line| line.start_with?('cpu'.freeze) }
-
-			data, prev_data = file[0].split.map!(&:to_f), prev_file[0].split.map!(&:to_f)
+			data = IO.foreach(CPU_USAGE).detect { |line| line[0..2] == 'cpu'.freeze }.split.map!(&:to_f)
 
 			%w(user nice sys idle iowait irq softirq steal).each_with_index { |e, i| binding.eval "@#{e}, @prev_#{e} = #{data[i += 1]}, #{prev_data[i]}" }
 
@@ -230,20 +238,20 @@ def main
 			" | \xF0\x9F\xA7\xA0 CPU: #{totald.-(idle - previdle)./(totald).*(100.0).rpad.rjust(6)}% "
 		else
 			Kernel.sleep(refresh)
-			''
+			''.freeze
 		end
 
 		message.replace(
 			case Time.new.hour
-				when 5..11 then "\xF0\x9F\x8C\x85 Good Morning \xF0\x9F\x8C\x85".freeze
-				when 12..16 then "\xF0\x9F\x8C\x87 Good Afternoon \xF0\x9F\x8C\x87".freeze
-				when 17..19 then "\xF0\x9F\x8C\x86 Good Evening \xF0\x9F\x8C\x86".freeze
-				else "\xF0\x9F\x8C\x83 Good Night \xF0\x9F\x8C\x83".freeze
+				when 5..11 then morning_message
+				when 12..16 then afternoon_message
+				when 17..19 then evening_message
+				else night_message
 			end
 		) if display_message
 
 		if display_quote
-			posix_time = Time.now.to_i
+			posix_time = time_now
 
 			if anim_quote.empty?
 				quote_refreshed, quote_counter = posix_time, -1
@@ -259,7 +267,7 @@ def main
 			end
 
 			if posix_time > quote_refreshed + quote_refresh_time
-				final_quote.replace(((quote_anim[0] + $-s + anim_quote.chop!.to_s + ?|).center(width)).colourize + "\e[0m\n\n")
+				final_quote.replace(((quote_anim[0] + $-s + anim_quote.chop!.to_s + ?|.freeze).center(width)).colourize + "\e[0m\n\n")
 			else
 				final_quote.replace(((quote_anim[0] + $-s + anim_quote).center(width).rstrip).colourize + "\e[5m|\e[0m\n\n")
 			end
@@ -267,14 +275,14 @@ def main
 
 		info = "#{username} | #{clocks[(counter += 1) % clocks.size]} #{Time.new.strftime('%a, %b %D')}"\
 			" | \xF0\x9F\x92\xAD Memory: #{mem_used.send(:/, unit == 'MIB'.freeze ? 1024.0 : 1000.0).rpad} #{unit}/#{mem_total.send(:/, unit == 'MIB'.freeze ? 1024.0 : 1000.0).rpad} #{unit}"\
-				"#{swap_stats}#{cpu_usage}#{battery}".center(width - 6)
+			"#{swap_stats}#{cpu_usage}#{battery}".center(width - (COLOURTERM ? 6 : 0))
 
 		# Print to the STDOUT
-		print <<-EOF
+		print <<~EOF
 			#{CLEAR}#{
-			(bar_colour != -1 ? info.chars.map! { |x| "\e[48;5;#{bar_colour}m\e[38;5;#{bar_text_colour}m#{x}\e[0m" }.join: info.colourize(colours: bar_text_anim_colour))
+			(bar_colour != -1 ? info.chars.each { |x| x.replace("\e[48;5;#{bar_colour}m\e[38;5;#{bar_text_colour}m#{x}\e[0m") }.join : info.colourize(colours: bar_text_anim_colour))
 			} #{$-s * (STDOUT.winsize[0]./(3) * width)}#{
-			display.(Time.new.strftime(time_format)).lines.map! { |x| x.chomp.+($-n).then { |y| $-s * width./(2).-(y.length / 2).abs + y } }
+			display.(Time.new.strftime(time_format)).lines.each { |x| x.replace(x.chomp.+($-n).then { |y| $-s * width./(2).-(y.length / 2).abs + y }) }
 				.join.colourize(colours: colours, animate: animate, pattern: pattern).strip + $-n +
 			final_quote + message.center(width - 2).colourize(colours: message_colours)}
 		EOF
@@ -303,6 +311,11 @@ def main
 			when 1 then quote_colours.rotate!
 			when 2 then quote_colours.rotate!(-1)
 			else quote_colours.shuffle!
+		end
+
+		if gc_compact && time_now > gc_compacted
+			GC.compact
+			gc_compacted = time_now + 7200
 		end
 	end
 end
