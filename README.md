@@ -2,6 +2,9 @@
 #### A Configurable and Colourful Terminal Clock...
 ![RPi](https://github.com/Souravgoswami/term-clock/blob/master/Screenshots/Raspberry%20Pi.jpg)
 
+This project is no longer maintained. Try the new termclock ruby gem here
+https://github.com/Souravgoswami/termclock
+
 # Dependencies ➕
   + Ruby: The program is written in Ruby. So you need to download the Ruby interpreter (ruby 2.5+) to run:
       `ruby term-clock.rb`
